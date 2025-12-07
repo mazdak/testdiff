@@ -46,11 +46,10 @@ impl ProjectIndex {
                                 import, info.module
                             ));
                         }
-                        String::new()
+                        // Keep the raw import string so missing modules (e.g., deleted files)
+                        // still participate in the reverse graph.
+                        import.to_string()
                     });
-                if target.is_empty() {
-                    continue;
-                }
                 reverse
                     .entry(target)
                     .or_default()

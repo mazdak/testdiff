@@ -108,6 +108,35 @@ fn deleted_python_file_still_impacts_importers() {
 }
 
 #[test]
+fn deleted_top_level_module_impacts_importers() {
+    let tmp = tempdir().unwrap();
+    let root_path = Utf8PathBuf::from_path_buf(tmp.path().to_path_buf()).unwrap();
+    let root: &Utf8Path = root_path.as_ref();
+
+    let removed_path = write_file(root, "foo.py", "def f():\n    return 1\n");
+    write_file(
+        root,
+        "tests/test_bar.py",
+        "import foo\n\ndef test_bar():\n    assert hasattr(foo, 'f')\n",
+    );
+
+    std::fs::remove_file(removed_path.as_std_path()).unwrap();
+
+    let index = ProjectIndex::build(root).unwrap();
+    let changed = vec![removed_path];
+    let impacted = index
+        .impacted_tests(&changed, None, None, true, false)
+        .unwrap();
+
+    let names: Vec<_> = impacted.iter().map(|t| t.path.as_str()).collect();
+    assert!(
+        names.contains(&"tests/test_bar.py"),
+        "expected tests/test_bar.py when foo.py is removed, got {:?}",
+        names
+    );
+}
+
+#[test]
 fn conftest_is_not_considered_a_test() {
     let tmp = tempdir().unwrap();
     let root_path = Utf8PathBuf::from_path_buf(tmp.path().to_path_buf()).unwrap();

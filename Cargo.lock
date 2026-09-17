@@ -2349,7 +2349,7 @@ dependencies = [
 
 [[package]]
 name = "testdiff"
-version = "0.1.1"
+version = "0.1.4"
 dependencies = [
  "anyhow",
  "camino",
@@ -2364,6 +2364,7 @@ dependencies = [
  "ruff_python_semantic",
  "ruff_source_file",
  "ruff_workspace",
+ "serde_json",
  "shellexpand",
  "tempfile",
 ]

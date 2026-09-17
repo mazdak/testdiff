@@ -42,5 +42,8 @@ jobs:
           linker = "aarch64-linux-gnu-gcc"
           CARGO
 
+      - name: Test
+        run: cargo test --locked
+
       - name: Build
         run: cargo build --release --target ${{ matrix.target }}

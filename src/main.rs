@@ -7,6 +7,7 @@ use shellexpand;
 
 mod format;
 mod git;
+mod migrations;
 mod priority;
 mod project;
 
@@ -33,6 +34,8 @@ pub struct Cli {
 pub enum Command {
     /// Format a pytest JUnit XML report as GitHub Actions annotations
     Format(FormatArgs),
+    /// Check Django migration dependencies without importing Python or accessing a database
+    Migrations(migrations::MigrationArgs),
 }
 
 #[derive(ClapArgs, Debug)]
@@ -86,8 +89,10 @@ pub struct SelectArgs {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    if let Some(Command::Format(args)) = cli.command {
-        return format::format_junit(&args);
+    match cli.command {
+        Some(Command::Format(args)) => return format::format_junit(&args),
+        Some(Command::Migrations(args)) => return migrations::check(&args),
+        None => (),
     }
 
     let args = cli.select;

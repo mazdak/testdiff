@@ -52,3 +52,50 @@ Format subcommand (`testdiff format <path>`):
 ## Status
 
 Stateless by design (no persistent cache). Performance is kept modest by skipping common vendor/build directories (e.g., `.git`, `target`, `.venv`, `node_modules`).
+
+## Django migration conflicts
+
+Run from the repository root:
+
+```bash
+testdiff migrations --base origin/master --head HEAD \
+  --app core=core/migrations --app users=users/migrations \
+  --external-app auth --external-app contenttypes \
+  --setting AUTH_USER_MODEL=auth.User
+```
+
+Fetch the base before invoking the command. `--head` is the commit being checked
+(default `HEAD`), not the working tree. `--base` uses `git merge-tree --write-tree`
+(Git 2.38+) to check the proposed merge without changing the index, checkout, or
+branches. Omit `--base` to check an already merged CI/merge-queue commit. A Git
+merge conflict also fails the command. A shallow clone needs enough history for
+a merge base; missing history fails rather than checking the branch alone.
+
+Repeat `--app LABEL=PATH` for each installed local migration module; explicit
+paths avoid treating migration helpers and test fixtures as installed apps.
+Declare third-party dependency apps with `--external-app`; their graphs are not
+loaded. `--setting NAME=app.Model` resolves `swappable_dependency(settings.NAME)`.
+Only the configured apps are checked, so update this list when installing apps.
+
+The checker parses Python with Ruff, reads migration blobs in one Git batch, and
+checks dependencies, competing same-app heads, missing references, cycles,
+`run_before`, and literal squash `replaces` metadata. Existing valid merge
+migrations pass; migration number reuse alone is not a conflict. It never imports
+Python, starts Django, installs dependencies, or connects to a database.
+
+This is an early source-only check, not a replacement for Django's own checks or
+migration execution. Squashes are treated as replacements in an unapplied graph;
+partially applied database histories still require Django validation. Computed
+graph metadata, custom Migration bases, and unsupported class statements fail
+explicitly. Keep graph metadata literal. Arbitrary Python side effects and model
+changes without migrations are outside this check's scope.
+
+`--conflicts-json PATH` writes an app-to-heads JSON object once the graph has
+been validated (`{}` when there are no competing heads). It is not written for
+Git, parsing, missing-reference, or cycle errors; callers should use a fresh
+output path. This lets CI retain structured conflict evidence.
+
+The command exits nonzero for conflicts, unsupported metadata, invalid input, or
+Git failures. Errors identify the affected migration files. Test coverage includes
+divergent Git branches, valid merges, deleted dependencies, squash replacements,
+cross-app cycles, and preservation of staged/unstaged work.

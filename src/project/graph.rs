@@ -101,6 +101,13 @@ impl ProjectIndex {
             }
         }
 
+        // Only actual change seeds provide filename hints. Including transitive
+        // dependents lets tests influence their own ranking.
+        let changed_leaves: HashSet<String> = queue
+            .iter()
+            .filter_map(|module| module.rsplit('.').next().map(str::to_string))
+            .collect();
+
         while let Some(module) = queue.pop_front() {
             let current_dist = distances.get(&module).copied().unwrap_or(0);
             if let Some(limit) = distance_limit {
@@ -119,12 +126,6 @@ impl ProjectIndex {
                 }
             }
         }
-
-        let changed_leaves: HashSet<String> = distances
-            .iter()
-            .filter(|(m, _)| impacted_modules.contains(*m))
-            .filter_map(|(m, _)| m.split('.').last().map(str::to_string))
-            .collect();
 
         let mut tests: Vec<TestResult> = Vec::new();
 

@@ -46,6 +46,9 @@ Format subcommand (`testdiff format <path>`):
 - If no failures/errors (and skips are excluded), a short message is printed to stderr.
 
 ## Heuristics
+- Ranking: shortest import-graph distance first (directly changed tests have distance zero), then filename similarity to actual changed modules, then path for deterministic ties.
+- The cap applies after ranking, even when changed tests outnumber the cap. Use `--dry-run` to inspect scores.
+- Static imports do not capture every runtime relationship: dynamic imports, implicit fixtures, and registrations may be invisible to the graph.
 - Test detection: files named `test_*.py` or `*_test.py`.
 - Import-graph mode: relative imports are resolved against the current module path; unresolved imports fall back to matching `<module>.py` or `<module>/__init__.py` under the project root. Unresolved imports are reported as warnings.
 

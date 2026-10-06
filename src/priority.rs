@@ -3,8 +3,9 @@ use std::path::Path;
 
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct Priority {
-    pub filename_match: u8,
+    // Graph distance is stronger evidence than a filename resemblance.
     pub distance: usize,
+    pub filename_match: u8,
 }
 
 pub fn priority(path: &str, distance: usize, changed_leaves: &HashSet<String>) -> Priority {

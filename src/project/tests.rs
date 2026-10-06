@@ -158,3 +158,66 @@ fn conftest_is_not_considered_a_test() {
         "test_*.py should be treated as a test file"
     );
 }
+
+#[test]
+fn capped_selection_prioritizes_changes_then_distance_then_name() {
+    let tmp = tempdir().unwrap();
+    let root = Utf8PathBuf::from_path_buf(tmp.path().to_path_buf()).unwrap();
+    let changed = write_file(&root, "pkg/service.py", "value = 1");
+    let changed_test = write_file(&root, "tests/test_receipts.py", "import pkg.service");
+    write_file(&root, "pkg/bridge.py", "import pkg.service");
+    write_file(&root, "tests/test_service_far.py", "import pkg.bridge");
+    write_file(&root, "tests/test_service.py", "import pkg.service");
+    write_file(&root, "tests/test_other.py", "import pkg.service");
+    let index = ProjectIndex::build(&root).unwrap();
+    let results = index
+        .impacted_tests(&[changed, changed_test], Some(3), Some(5), true, false)
+        .unwrap();
+    let paths: Vec<_> = results.iter().map(|test| test.path.as_str()).collect();
+    assert_eq!(
+        paths,
+        [
+            "tests/test_receipts.py",
+            "tests/test_service.py",
+            "tests/test_other.py",
+        ]
+    );
+}
+
+#[test]
+fn transitive_module_names_do_not_supply_ranking_hints() {
+    let tmp = tempdir().unwrap();
+    let root = Utf8PathBuf::from_path_buf(tmp.path().to_path_buf()).unwrap();
+    let changed = write_file(&root, "pkg/source.py", "value = 1");
+    write_file(&root, "pkg/bridge.py", "import pkg.source");
+    write_file(&root, "tests/test_bridge.py", "import pkg.source");
+    write_file(&root, "tests/test_alpha.py", "import pkg.source");
+    let index = ProjectIndex::build(&root).unwrap();
+    for _ in 0..5 {
+        let results = index
+            .impacted_tests(std::slice::from_ref(&changed), Some(1), None, true, false)
+            .unwrap();
+        assert_eq!(results[0].path, "tests/test_alpha.py");
+    }
+}
+
+#[test]
+fn parent_relative_import_from_package_preserves_dependency() {
+    let tmp = tempdir().unwrap();
+    let root = Utf8PathBuf::from_path_buf(tmp.path().to_path_buf()).unwrap();
+    write_file(&root, "pkg/__init__.py", "");
+    let changed = write_file(&root, "pkg/source.py", "value = 1");
+    write_file(&root, "pkg/child/__init__.py", "from ..source import value");
+    write_file(
+        &root,
+        "tests/test_consumer.py",
+        "from pkg.child import value",
+    );
+    let index = ProjectIndex::build(&root).unwrap();
+    let results = index
+        .impacted_tests(&[changed], None, None, true, false)
+        .unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].path, "tests/test_consumer.py");
+    assert_eq!(results[0].distance, 2);
+}

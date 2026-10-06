@@ -66,12 +66,18 @@ pub(super) fn resolve_import(
 
     let base = if relative {
         let mut parts: Vec<&str> = current_module.split('.').collect();
-        // If current module is a package (__init__), don't pop the last part when handling relative imports.
-        if !(is_package && spec.level == 1) {
-            let pops = spec.level.min(parts.len() as u32) as usize;
-            for _ in 0..pops {
-                parts.pop();
-            }
+        // Packages already name their directory; ordinary modules need
+        // one additional pop to reach that directory.
+        let pops = if is_package {
+            spec.level - 1
+        } else {
+            spec.level
+        };
+        if pops as usize >= parts.len() {
+            return None;
+        }
+        for _ in 0..pops {
+            parts.pop();
         }
         parts
     } else {
